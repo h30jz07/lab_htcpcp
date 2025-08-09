@@ -1,6 +1,7 @@
 import sys
 import os
 import random
+import re
 
 # Get the current directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -161,10 +162,33 @@ def main(argv):
                     current_date = datetime.datetime.now().strftime(TIME_STRING_FORMAT)
 
                     ## TODO: Create response headers
-                    headers_to_send = []
+                    headers_to_send = [
+                        "HTCPCP/1.1 200 OK\r\n",
+                        "Server: CoffeePot\r\n",
+                        "Content-Type: application/coffee-pot-command\r\n",
+                        "Date: " + current_date,
+                        "\r\n"
+                    ]
 
                     response = create_request_response(
                         method, message, additions, pour_milk_start
+                    )
+
+                    final_response = "".join(headers_to_send) + response
+
+                    logging.info("Sending response: " + final_response)
+
+                elif not processing_request:
+                    headers_to_send = [
+                        "HTCPCP/1.1 406 Not Acceptable\r\n",
+                        "Server: CoffeePot\r\n",
+                        "Content-Type: application/coffee-pot-command\r\n",
+                        "Date: " + current_date,
+                        "\r\n"
+                    ]
+
+                    response = create_request_response(
+                        list(ACCEPTED_ADDITIONS.keys())
                     )
 
                     final_response = "".join(headers_to_send) + response
@@ -218,7 +242,42 @@ def ensure_request_is_valid(
 
     For each case 1 to 5 above, call send_error_message(error_message) with an appropriately crafted error message containing status code and reason-phrase. The arg not_found_message gives you a general idea of the format of the expected error message conforming to HTCPCP/1.0 protocol.
     """
-    return True
+    error_message = "HTCPCP/1.1 {code} {reason_phrase}\r\n\r\n"
+    pattern = r'^[a-zA-Z][a-zA-Z0-9+.-]*://[a-zA-Z0-9.-]+$'
+    print("urls is ", url)
+    print("urls is ", content_type)
+    print("urls is ", method)
+    print("urls is ", connection)
+    print("urls is ", requested_pot)
+    print("urls is ", accepted_coffee_schemes)
+    print("urls is ", accepted_methods)
+    if url.split(":")[0] not in accepted_coffee_schemes:
+        check = False
+        code = 400
+        message = "Invalid Scheme"
+    elif re.match(pattern, url) is  None:
+        check = False
+        code = 400
+        message = "Malformed URL"
+    elif method not in accepted_methods:
+        check = False
+        code = 501
+        message = "Method not Implemented"
+    elif content_type != "application/coffee-pot-command":
+        check = False
+        code = 415
+        message = "Unsupported Media Type"
+    elif requested_pot == 'tea':
+        check = False
+        code = 418
+        message = "I'm a teapot"
+    else:
+        # All checks passed
+        check = True
+    if not check:
+        send_error_message(connection, error_message.format(code=code, reason_phrase=message).encode())
+
+    return check
 
 
 def process_additions(headers, processing_request, connection):
