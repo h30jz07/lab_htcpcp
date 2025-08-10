@@ -128,7 +128,6 @@ def main(argv):
             content_type = [
                 header for header in headers if header.startswith("Content-Type")
             ]
-
             try:
                 requested_pot = (
                     [header for header in headers if header.startswith("Use-Pot")][0]
@@ -178,7 +177,10 @@ def main(argv):
 
                     logging.info("Sending response: " + final_response)
 
-                elif not processing_request:
+                else:
+                    # TODO: Handle other cases that passes ensure_request_is_valid but isn't supported
+                    # if we reach here, request is valid, but the server doesn't support this feature
+                    # e.g: 406
                     headers_to_send = [
                         "HTCPCP/1.1 406 Not Acceptable\r\n",
                         "Server: CoffeePot\r\n",
@@ -187,19 +189,11 @@ def main(argv):
                         "\r\n"
                     ]
 
-                    response = create_request_response(
-                        list(ACCEPTED_ADDITIONS.keys())
-                    )
+                    response = "Not acceptable, don't add weird things to your coffee."
 
                     final_response = "".join(headers_to_send) + response
 
                     logging.info("Sending response: " + final_response)
-
-                else:
-                    # TODO: Handle other cases that passes ensure_request_is_valid but isn't supported
-                    # if we reach here, request is valid, but the server doesn't support this feature
-                    # e.g: 406
-                    final_response = ""
 
                 connection.send(bytes(final_response.encode("utf-8")))
                 print(f"\n\nHTCPCP Response Crafted:\n{final_response}")
@@ -243,27 +237,21 @@ def ensure_request_is_valid(
     For each case 1 to 5 above, call send_error_message(error_message) with an appropriately crafted error message containing status code and reason-phrase. The arg not_found_message gives you a general idea of the format of the expected error message conforming to HTCPCP/1.0 protocol.
     """
     error_message = "HTCPCP/1.1 {code} {reason_phrase}\r\n\r\n"
-    pattern = r'^[a-zA-Z][a-zA-Z0-9+.-]*://[a-zA-Z0-9.-]+$'
-    print("urls is ", url)
-    print("urls is ", content_type)
-    print("urls is ", method)
-    print("urls is ", connection)
-    print("urls is ", requested_pot)
-    print("urls is ", accepted_coffee_schemes)
-    print("urls is ", accepted_methods)
+    pattern = r'^[a-zA-Z][a-zA-Z0-9+.-]*://ducky'
+    print(url.split(":")[0])
     if url.split(":")[0] not in accepted_coffee_schemes:
         check = False
         code = 400
         message = "Invalid Scheme"
     elif re.match(pattern, url) is  None:
         check = False
-        code = 400
+        code = 404
         message = "Malformed URL"
     elif method not in accepted_methods:
         check = False
         code = 501
         message = "Method not Implemented"
-    elif content_type != "application/coffee-pot-command":
+    elif content_type[0] != "Content-Type: application/coffee-pot-command":
         check = False
         code = 415
         message = "Unsupported Media Type"
